@@ -855,7 +855,7 @@ select:focus { border-color: var(--accent); }
 <script>
 // ── STATE ──────────────────────────────────────────────────────────
 // ★ここにGASのデプロイURLを入力してください★
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxlq_cpM9985ILcbgSqOiTe7vnobRidgOIlQm1AxzMccv4OpBcdEsEwWUqoC7GSjvS1/exec';
+const DEFAULT_GAS_URL = '';
 // ローカル設定より DEFAULT_GAS_URL を優先（空の場合はローカル設定を使用）
 let GAS_URL = DEFAULT_GAS_URL || localStorage.getItem('tfp_gas_url') || '';
 let members = JSON.parse(localStorage.getItem('tfp_members') || '[]');

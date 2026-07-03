@@ -854,7 +854,10 @@ select:focus { border-color: var(--accent); }
 
 <script>
 // ── STATE ──────────────────────────────────────────────────────────
-let GAS_URL = localStorage.getItem('tfp_gas_url') || '';
+// ★ここにGASのデプロイURLを入力してください★
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxlq_cpM9985ILcbgSqOiTe7vnobRidgOIlQm1AxzMccv4OpBcdEsEwWUqoC7GSjvS1/exec';
+// ローカル設定より DEFAULT_GAS_URL を優先（空の場合はローカル設定を使用）
+let GAS_URL = DEFAULT_GAS_URL || localStorage.getItem('tfp_gas_url') || '';
 let members = JSON.parse(localStorage.getItem('tfp_members') || '[]');
 let tasks   = JSON.parse(localStorage.getItem('tfp_tasks')   || '[]');
 let currentView = 'tasks';
@@ -2121,8 +2124,13 @@ function renderSettings() {
         <input type="text" id="gas-url-input" value="${esc(GAS_URL)}" placeholder="https://script.google.com/macros/s/…/exec">
         <button class="btn btn-primary" onclick="saveGasUrl()">保存</button>
       </div>
-      <div class="info-box">
-        <strong>スプレッドシートのシート構成</strong><br><br>
+      <div class="info-box" style="margin-top:10px">
+        <strong>HTMLに直接埋め込む場合（GitHub Pages推奨）</strong><br>
+        HTMLファイルの先頭付近にある <code>DEFAULT_GAS_URL</code> にURLを貼り付けてください。<br>
+        GitHubにアップすると全員が同じURLで同期できます。<br><br>
+        <strong>個別設定の場合</strong><br>
+        上の入力欄にURLを貼り付けて保存すると、このブラウザのみに設定されます。
+      </div>
         <strong>tasksシート（列）</strong>：<code>id</code> / <code>タスク名</code> / <code>説明</code> / <code>担当者ID</code> / <code>ステータス</code> / <code>優先度</code> / <code>期限</code> / <code>進捗</code> / <code>予定工数</code> / <code>実績工数</code> / <code>作業日</code> / <code>カテゴリ</code> / <code>作成日</code><br><br>
         <strong>membersシート（列）</strong>：<code>id</code> / <code>名前</code> / <code>ロール</code> / <code>カラー</code><br><br>
         <strong>ステータス値</strong>：<code>todo</code> / <code>wip</code> / <code>done</code> / <code>hold</code><br>

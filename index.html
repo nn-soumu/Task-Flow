@@ -855,7 +855,7 @@ select:focus { border-color: var(--accent); }
 <script>
 // ── STATE ──────────────────────────────────────────────────────────
 // ★ここにGASのデプロイURLを入力してください★
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxlq_cpM9985ILcbgSqOiTe7vnobRidgOIlQm1AxzMccv4OpBcdEsEwWUqoC7GSjvS1/exec';
+const DEFAULT_GAS_URL = '';
 // ローカル設定より DEFAULT_GAS_URL を優先（空の場合はローカル設定を使用）
 let GAS_URL = DEFAULT_GAS_URL || localStorage.getItem('tfp_gas_url') || '';
 let members = JSON.parse(localStorage.getItem('tfp_members') || '[]');
@@ -1082,6 +1082,79 @@ function setSort(key) {
 
 const PRIO_ORDER = { '高': 0, '中': 1, '低': 2, '': 3 };
 
+function renderTasksTable() {
+  const q  = taskFilter.q;
+  const fs = taskFilter.status;
+  const fm = taskFilter.member;
+  const fp = taskFilter.prio;
+  const fc = taskFilter.cat;
+  const ql = q.toLowerCase();
+
+  let list = tasks.filter(t => {
+    if (ql && !t['タスク名']?.toLowerCase().includes(ql) && !t['説明']?.toLowerCase().includes(ql)) return false;
+    if (fs === '未完了') { if (!['未着手','進行中'].includes(t['ステータス'])) return false; }
+    else if (fs && t['ステータス'] !== fs) return false;
+    if (fm && (t['担当者名'] || t['担当者ID']) !== fm) return false;
+    if (fp && t['優先度'] !== fp)   return false;
+    if (fc && t['カテゴリ'] !== fc) return false;
+    return true;
+  });
+
+  if (sortKey) {
+    const toSortDate = s => { if (!s) return '9999-99-99'; const d = new Date(s); if (!isNaN(d)) return d.toISOString().slice(0,10); return s.replace(/\//g,'-'); };
+    list.sort((a,b) => {
+      let va,vb;
+      if (sortKey==='期限') { va=toSortDate(a['期限']); vb=toSortDate(b['期限']); }
+      else if (sortKey==='優先度') { va=PRIO_ORDER[a['優先度']]??3; vb=PRIO_ORDER[b['優先度']]??3; }
+      else if (sortKey==='作成日') { va=toSortDate(a['作成日']); vb=toSortDate(b['作成日']); }
+      return va<vb?-sortDir:va>vb?sortDir:0;
+    });
+  }
+
+  const countEl = document.getElementById('t-count');
+  if (countEl) countEl.textContent = list.length + '件';
+
+  const tbody = document.getElementById('t-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = list.length === 0
+    ? `<tr><td colspan="9"><div class="empty-state"><i class="fa-solid fa-inbox"></i>タスクがありません</div></td></tr>`
+    : list.map(t => {
+        const mname = t['担当者名'] || t['担当者ID'] || '';
+        const m = getMember(mname);
+        const dc = dateClass(t['期限']);
+        const prog = parseInt(t['進捗'])||0;
+        return `<tr>
+          <td>
+            <div class="task-name task-name-link" onclick="openDetailModal('${esc(t.id)}')">${esc(t['タスク名'])}</div>
+            ${t['説明'] ? `<div class="task-desc">${linkify(t['説明'])}</div>` : ''}
+            ${t['カテゴリ'] ? `<span style="font-size:10px;background:var(--bg3);color:var(--text-sub);padding:1px 6px;border-radius:8px">${esc(t['カテゴリ'])}</span>` : ''}
+          </td>
+          <td>
+            ${mname ? `<div class="member-cell"><div class="avatar" style="background:${esc(memberColor(mname))}">${esc(initials(mname))}</div>${esc(mname)}</div>` : `<span style="color:var(--text-sub);font-size:12px">未割当</span>`}
+          </td>
+          <td><span class="badge ${getStatusCls(t['ステータス'])}">${esc(t['ステータス']||'未着手')}</span></td>
+          <td>${t['優先度'] ? `<span class="badge ${getPrioCls(t['優先度'])}">${esc(t['優先度'])}</span>` : '—'}</td>
+          <td class="date-cell ${dc}">${formatDisplayDate(t['期限'])||'—'}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${prog}%"></div></div>
+              <span style="font-size:11px;color:var(--text-sub)">${prog}%</span>
+            </div>
+          </td>
+          <td style="font-size:12px;color:var(--text-sub)">${t['予定工数']||0}h / ${t['実績工数']||0}h</td>
+          <td class="date-cell" style="font-size:12px">${formatDisplayDate(t['作成日'])||'—'}</td>
+          <td>
+            <div class="row-actions">
+              <button class="icon-btn" onclick="openTaskModal('${esc(t.id)}')"><i class="fa-solid fa-pen"></i></button>
+              <button class="icon-btn" onclick="copyTask('${esc(t.id)}')" title="コピー"><i class="fa-solid fa-copy"></i></button>
+              <button class="icon-btn del" onclick="deleteTask('${esc(t.id)}')"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+}
+
 function renderTasks() {
   // フィルター値：DOM優先、なければ保持状態から復元
   const q  = document.getElementById('t-search')  ? document.getElementById('t-search').value  : taskFilter.q;
@@ -1137,7 +1210,7 @@ function renderTasks() {
     <div class="filter-bar">
       <div class="search-wrap">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" id="t-search" placeholder="タスクを検索..." value="${esc(q)}" oninput="renderTasks()">
+        <input type="text" id="t-search" placeholder="タスクを検索..." value="${esc(q)}" oninput="taskFilter.q=this.value;renderTasksTable()">
       </div>
       <select id="t-status" onchange="renderTasks()">
         <option value="">全ステータス</option>
@@ -1157,7 +1230,7 @@ function renderTasks() {
         <option value="庶務"  ${fc==='庶務' ?'selected':''}>庶務</option>
         <option value="その他" ${fc==='その他'?'selected':''}>その他</option>
       </select>
-      <span style="font-size:12px;color:var(--text-sub);margin-left:4px">${list.length}件</span>
+      <span id="t-count" style="font-size:12px;color:var(--text-sub);margin-left:4px">${list.length}件</span>
       ${fs||fm||fp||fc||q ? `<button class="btn btn-ghost btn-sm" onclick="taskFilter={q:'',status:'',member:'',prio:'',cat:''};renderTasks()"><i class="fa-solid fa-xmark"></i> 絞り込み解除</button>` : ''}
     </div>
     <div class="task-table-wrap">
@@ -1181,48 +1254,11 @@ function renderTasks() {
             <th></th>
           </tr>
         </thead>
-        <tbody>
-          ${list.length === 0 ? `<tr><td colspan="8"><div class="empty-state"><i class="fa-solid fa-inbox"></i>タスクがありません</div></td></tr>` :
-            list.map(t => {
-              const mname = t['担当者名'] || t['担当者ID'] || '';
-              const m = getMember(mname);
-              const dc = dateClass(t['期限']);
-              const prog = parseInt(t['進捗'])||0;
-              return `<tr>
-                <td>
-                  <div class="task-name task-name-link" onclick="openDetailModal('${esc(t.id)}')">${esc(t['タスク名'])}</div>
-                  ${t['説明'] ? `<div class="task-desc">${linkify(t['説明'])}</div>` : ''}
-                  ${t['カテゴリ'] ? `<span style="font-size:10px;background:var(--bg3);color:var(--text-sub);padding:1px 6px;border-radius:8px">${esc(t['カテゴリ'])}</span>` : ''}
-                </td>
-                <td>
-                  ${mname ? `<div class="member-cell"><div class="avatar" style="background:${esc(memberColor(mname))}">${esc(initials(mname))}</div>${esc(mname)}</div>` : `<span style="color:var(--text-sub);font-size:12px">未割当</span>`}
-                </td>
-                <td><span class="badge ${getStatusCls(t['ステータス'])}">${esc(t['ステータス']||'未着手')}</span></td>
-                <td>${t['優先度'] ? `<span class="badge ${getPrioCls(t['優先度'])}">${esc(t['優先度'])}</span>` : '—'}</td>
-                <td class="date-cell ${dc}">${formatDisplayDate(t['期限'])||'—'}</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${prog}%"></div></div>
-                    <span style="font-size:11px;color:var(--text-sub)">${prog}%</span>
-                  </div>
-                </td>
-                <td style="font-size:12px;color:var(--text-sub)">
-                  ${t['予定工数']||0}h / ${t['実績工数']||0}h
-                </td>
-                <td class="date-cell" style="font-size:12px">${formatDisplayDate(t['作成日'])||'—'}</td>
-                <td>
-                  <div class="row-actions">
-                    <button class="icon-btn" onclick="openTaskModal('${esc(t.id)}')"><i class="fa-solid fa-pen"></i></button>
-                    <button class="icon-btn" onclick="copyTask('${esc(t.id)}')" title="コピー"><i class="fa-solid fa-copy"></i></button>
-                    <button class="icon-btn del" onclick="deleteTask('${esc(t.id)}')"><i class="fa-solid fa-trash"></i></button>
-                  </div>
-                </td>
-              </tr>`;
-            }).join('')}
-        </tbody>
+        <tbody id="t-tbody"></tbody>
       </table>
     </div>
   `;
+  renderTasksTable();
 }
 
 // ── CALENDAR ────────────────────────────────────────────────────────
